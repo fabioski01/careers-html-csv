@@ -8,6 +8,7 @@ with open(html_file_path, 'r', encoding='utf-8') as file:
 
 # Extract job data
 jobs = []
+seen_jobs = set()  # To avoid duplicates
 
 for tile in soup.find_all('div', class_='tiletitle'):
     # Extract job title and hyperlink
@@ -15,22 +16,36 @@ for tile in soup.find_all('div', class_='tiletitle'):
     job_title = title_tag.get_text(strip=True) if title_tag else 'N/A'
     hyperlink = title_tag['href'] if title_tag else 'N/A'
 
-    # Find the parent div to extract additional fields
-    parent_div = tile.find_next('div', class_='oneline')
+    # Avoid duplicates using the job title as a unique identifier
+    if job_title in seen_jobs:
+        continue
+    seen_jobs.add(job_title)
+
+    # Find the next 'oneline' div for the details
+    details_div = tile.find_next('div', class_='oneline')
 
     # Extract vacancy type
-    vacancy_div = parent_div.find('div', class_='section-field shifttype') if parent_div else None
-    vacancy_type = vacancy_div.find_next('div').get_text(strip=True) if vacancy_div else 'N/A'
+    vacancy_type = 'N/A'
+    if details_div:
+        vacancy_div = details_div.find('div', id=lambda x: x and 'desktop-section-shifttype' in x)
+        if vacancy_div:
+            vacancy_type = vacancy_div.find('div').get_text(strip=True)
 
     # Extract closing date
-    closing_div = parent_div.find('div', class_='section-field department') if parent_div else None
-    closing_date = closing_div.find_next('div').get_text(strip=True) if closing_div else 'N/A'
+    closing_date = 'N/A'
+    if details_div:
+        closing_div = details_div.find('div', id=lambda x: x and 'desktop-section-department' in x)
+        if closing_div:
+            closing_date = closing_div.find('div').get_text(strip=True)
 
     # Extract workplace
-    workplace_div = parent_div.find('div', class_='section-field multilocation') if parent_div else None
-    workplace = workplace_div.find_next('div').get_text(strip=True) if workplace_div else 'N/A'
+    workplace = 'N/A'
+    if details_div:
+        workplace_div = details_div.find('div', id=lambda x: x and 'desktop-section-multilocation' in x)
+        if workplace_div:
+            workplace = workplace_div.find('div').get_text(strip=True)
 
-    # Append to jobs list
+    # Append job details to the list
     jobs.append({
         'Job Title': job_title,
         'Hyperlink': hyperlink,
@@ -40,7 +55,7 @@ for tile in soup.find_all('div', class_='tiletitle'):
     })
 
 # Write to CSV
-csv_file_path = 'jobs.csv'  # Replace with the desired output path
+csv_file_path = 'jobs.csv'  # Replace with your desired file path
 with open(csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
     writer = csv.DictWriter(csvfile, fieldnames=['Job Title', 'Hyperlink', 'Vacancy Type', 'Closing Date', 'Workplace'])
     writer.writeheader()
